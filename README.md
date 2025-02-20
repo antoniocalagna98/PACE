@@ -12,3 +12,7 @@ Etcd APIs                  |  Redis APIs
 ![](./pace-flow-etcd.png)  |  ![](./pace-flow-redis.png)
 
 Diagrams above illustrate the flow between a producer microservice and a consumer microservice, and the NPM platform interfaces they use to interact and to update their internal state. We consider NPM platform implementation based on popular, off-the-shelf distributed database technologies, i.e., [etcd](https://github.com/etcd-io/etcd), for prioritizing consistency over availability, and [Redis](https://github.com/redis/redis), for prioritizing availability over consistency.
+
+---
+
+We implemented PACE using Python language and mainly leveraged [etcd-](https://github.com/kragniz/python-etcd3) and [redis-](https://github.com/grokzen/redis-py-cluster) Python APIs to perform data operations and callback routines. We containerized both versions of PACE starting from the ubuntu:22.10 base image and installing the required libraries. Then, we used the attached YAMLs to run PACE as Kubernetes Pods.
