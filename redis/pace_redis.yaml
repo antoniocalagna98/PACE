@@ -1,0 +1,111 @@
+# parser = argparse.ArgumentParser(description='Consumer MS emulator using Redis to preserve state and send/receive metrics/control messages')
+# parser.add_argument("--redis", type=str, help='Redis mode to use, i.e., standalone or cluster. Defaults to "cluster"', default="cluster")
+# parser.add_argument('--pod_idx', type=int, help='Redis Pod Index to target. Defaults to -1, i.e., K8S ClusterIP SVC', default=-1)
+# parser.add_argument("--namespace", type=str, help='Reference Kubernetes Namespace. Defaults to "default"', default="default")
+# parser.add_argument('--state_size', type=float, help='State size in MB emulated as a queue of metrics messages. Defaults to 0.1MB', default=0.1)
+# parser.add_argument('--metrics_msg_size', type=int, help='Metrics message size in bytes. Defaults to 1kB', default=1000)
+# parser.add_argument('--ctrl_msg_size', type=int, help='Control message size in bytes. Defaults to 100B', default=100)
+# parser.add_argument('--latency', type=float, help='Inference latency in ms to simulate. Defaults to 50ms', default=50)
+# parser.add_argument('--cons_group_id', type=int, help='Consumer MS group ID for multiple producer-consumer pairing. Defaults to 0.', default=0)
+# parser.add_argument('--prod_group_id', type=int, help='Producer MS group ID for multiple producer-consumer pairing. Defaults to 0.', default=0)
+# parser.add_argument('--verbose', action='store_true', help='Enable verbose output')
+#---
+# parser = argparse.ArgumentParser(description='Producer MS emulator using Redis to send/receive metrics/control messages')
+# parser.add_argument("--redis", type=str, help='Redis mode to use, i.e., standalone or cluster. Defaults to "cluster"', default="cluster")
+# parser.add_argument('--pod_idx', type=int, help='Redis Pod Index to target. Defaults to -1, i.e., K8S ClusterIP SVC', default=-1)
+# parser.add_argument("--namespace", type=str, help='Reference Kubernetes Namespace. Defaults to "default"', default="default")
+# parser.add_argument('--period', type=float, help='Time interval across messages. Defaults to 1s', default=1)
+# parser.add_argument('--metrics_msg_size', type=int, help='Metrics message size in bytes. Defaults to 1kB', default=1000)
+# parser.add_argument('--cons_group_id', type=int, help='Consumer MS group ID for multiple producer-consumer pairing. Defaults to 0.', default=0)
+# parser.add_argument('--prod_group_id', type=int, help='Producer MS group ID for multiple producer-consumer pairing. Defaults to 0.', default=0)
+# parser.add_argument('--verbose', action='store_true', help='Enable verbose output')
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consumer-ms
+  labels:
+    app: cons
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cons
+  template:
+    metadata:
+      labels:
+        app: cons
+    spec:
+      containers:
+      - name: cons
+        image: pace:cons_redis
+        imagePullPolicy: Always
+        securityContext:
+          privileged: true
+        command:
+        - bash
+        - ./entrypoint.sh
+        - --redis cluster
+        - --pod_idx -1
+        - --namespace $(NAMESPACE)
+        - --state_size 1
+        - --metrics_msg_size 100000
+        - --ctrl_msg_size 100
+        - --latency 20
+        - --cons_group_id 1
+        - --prod_group_id 1
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            configMapKeyRef:
+              name: my-namespace-config 
+              key: NAMESPACE 
+        resources:
+          requests:
+            cpu: "0.5"
+            memory: "512Mi"
+            ephemeral-storage: "50Mi"
+          limits:
+            cpu: "0.75"
+            memory: "768Mi"
+            ephemeral-storage: "500Mi"
+      imagePullSecrets:
+      - name: regcred
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: producer-ms
+spec:
+  containers:
+  - name: prod
+    image: pace:prod_redis
+    imagePullPolicy: Always
+    securityContext:
+      privileged: true
+    command:
+    - bash
+    - ./entrypoint.sh
+    - --redis cluster
+    - --pod_idx -1
+    - --namespace $(NAMESPACE)
+    - --period 1.0
+    - --metrics_msg_size 100000
+    - --cons_group_id 1
+    - --prod_group_id 1
+    env:
+    - name: NAMESPACE
+      valueFrom:
+        configMapKeyRef:
+          name: my-namespace-config 
+          key: NAMESPACE  
+    resources:
+      requests:
+        cpu: "0.5"
+        memory: "512Mi"
+        ephemeral-storage: "50Mi"
+      limits:
+        cpu: "0.75"
+        memory: "768Mi"
+        ephemeral-storage: "500Mi"
+  imagePullSecrets:
+  - name: regcred

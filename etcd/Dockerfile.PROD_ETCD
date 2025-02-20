@@ -1,0 +1,44 @@
+FROM ubuntu:22.04
+
+# To avoid tzdata asking for geographic location...
+ENV DEBIAN_frontend=noninteractive
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=Europe/Rome
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# To improve flushing to kubectl logs
+ENV PYTHONUNBUFFERED=1
+
+# Set the working directory to /root
+ENV DIRPATH=/root
+WORKDIR $DIRPATH
+
+# Install essentials
+RUN apt update
+RUN apt upgrade -y
+RUN apt install -y sudo curl wget git build-essential python3 python3-pip
+
+# Install etcd
+RUN wget https://github.com/etcd-io/etcd/releases/download/v3.5.16/etcd-v3.5.16-linux-amd64.tar.gz
+RUN tar -xf etcd-v3.5.16-linux-amd64.tar.gz
+RUN mv etcd-v3.5.16-linux-amd64/etcd /usr/bin/
+RUN mv etcd-v3.5.16-linux-amd64/etcdctl /usr/bin/
+RUN mv etcd-v3.5.16-linux-amd64/etcdutl /usr/bin/
+RUN rm -r etcd-v3.5.16-linux-amd64
+RUN rm etcd-v3.5.16-linux-amd64.tar.gz
+
+#Install Python dependencies
+RUN pip3 install numpy jsonpickle requests argparse pytz pandas
+RUN pip3 install etcd3@git+https://github.com/kragniz/python-etcd3.git@pyup-update-protobuf-3.17.0-to-5.29.1
+
+# Copy repo
+COPY ./ /root/
+
+# Define entrypoint script
+RUN echo '#!/bin/bash' > ./entrypoint.sh
+RUN echo 'while true; do' >> ./entrypoint.sh
+RUN echo '  python3 main_prod.py $*' >> ./entrypoint.sh
+RUN echo '  echo "producer crashed; restarting"' >> ./entrypoint.sh
+RUN echo 'done' >> ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+ENTRYPOINT ["./entrypoint.sh"]

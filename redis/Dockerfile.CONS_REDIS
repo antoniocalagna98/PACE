@@ -1,0 +1,35 @@
+FROM ubuntu:22.04
+
+# To avoid tzdata asking for geographic location...
+ENV DEBIAN_frontend=noninteractive
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=Europe/Rome
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# To improve flushing to kubectl logs
+ENV PYTHONUNBUFFERED=1
+
+# Set the working directory to /root
+ENV DIRPATH=/root
+WORKDIR $DIRPATH
+
+# Install essentials
+RUN apt update
+RUN apt upgrade -y
+RUN apt install -y sudo curl wget git build-essential python3 python3-pip
+
+# Install redis-cli
+RUN apt install -y redis-tools
+
+#Install Python dependencies
+RUN pip3 install numpy jsonpickle requests argparse pytz pandas
+RUN pip3 install redis-py-cluster
+
+# Copy repo
+COPY ./ /root/
+
+# Define entrypoint script
+RUN echo '#!/bin/sh' > ./entrypoint.sh
+RUN echo 'python3 main_cons.py $*' >> ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+ENTRYPOINT ["./entrypoint.sh"]
